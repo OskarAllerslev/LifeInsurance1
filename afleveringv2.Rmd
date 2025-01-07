@@ -1,0 +1,629 @@
+---
+title: "Afleveringliv"
+author: "Oskar Allerslev"
+date: "2024-12-11"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# load data
+
+```{r}
+
+m1 <- read.csv("mort1.csv", sep = ";", dec = ",")
+m1fun <- approxfun(m1$Alder, m1$mu, rule = 2)
+mu02star <- function(t){ m1fun(t+30) }
+
+
+```
+# Opgave a)
+Vi bemærker at der ikke er klumpbetalinger. Vi opskriver vores reward som $R(t)=\Lambda^1(t) * B(t)+ \Delta(b(t))$.
+
+$$
+\begin{align*}
+R^\circ(t)=\begin{bmatrix}
+\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right) & 0 & 0 \\
+0 & 400K   & 0 \\
+0 & 0 & 0
+\end{bmatrix}
+\end{align*}
+$$
+
+Vi kan da skrive vores 
+
+$$
+\begin{align*}
+dB^\circ(t) &= \sum_{i \in E} \left( 1_{\{ X(t-)=i\}} b^\circ_i(t)dt\right)\\
+&=-\pi \cdot 1_{\{t\leq 35 \cap X(t-)=1 \}}dt+400K \cdot 1_{\{t> 35 \cap X(t-)=1 \}}dt+400K \cdot 1_{\{ X(t-)=2 \}}dt
+\end{align*}
+$$
+da vi ikke har klumpbetalinger. Den afhænger ikke af antagelserne fra førsteordensgrundlaget. 
+
+# opgave b)
+
+En vigtig antagelse for at man kan regne ækvivalenspræmien er at $R(t)=R(t;\theta)$. Det er også gældende i vores tilfælde er $\theta$ bare præmieraten, så derfor kan vi klart benytte os af Newtons algorithme til at finde ækvivalenspræmien. Vi vælger at skrive det på vektor-form. Bemærk $t\in(0,80)$. Dertil er de prospektive reserver
+
+$$
+\begin{align*}
+V^{th}(t;\pi) &= \int_{t}^{80}e^{-\int_{t}^u 0.01dx} P(0,u)R^{\circ *}(u)edu\\
+&=\int_{t}^{80} e^{-\int_t^u 0.01 dx}
+\begin{bmatrix}
+p_{11}(0, u) & p_{12}(0, u) & p_{13}(0, u) \\
+p_{21}(0, u) & p_{22}(0, u) & p_{23}(0, u) \\
+p_{31}(0, u) & p_{32}(0, u) & p_{33}(0, u)
+\end{bmatrix}
+\begin{bmatrix}
+\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right)  \\
+400K   \\
+0
+\end{bmatrix}
+du
+\\
+&=\begin{bmatrix}
+  \int_t^{80}e^{-\int_t^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du\\
+  \int_t^{80}e^{-\int_t^u 0.01 dx}p_{21}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right)+p_{22}(0,u)(400K   )du\\
+  0
+\end{bmatrix}
+\end{align*}
+$$
+
+$$
+\begin{align*}
+V^{th}_1(0;0)=\int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du
+\end{align*}
+$$
+$$
+\begin{align*}
+\frac{\partial}{\partial \pi}V^{th}_1(0;\pi)=  \int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}\right)du
+\end{align*}
+$$
+da er ækvivalenspræmien givet ved
+$$
+\begin{align*}
+\mu = \frac{V^{th}_1(0;0)}{\frac{\partial}{\partial \pi}V^{th}_1(0;\pi)} = \frac{\int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du }{ \int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}\right)du}
+\end{align*}
+$$
+
+# Opgave c
+
+```{r}
+prodint <- function(A, s, t, n) {
+  x0 <- s
+  y0 <- diag(nrow(A(s)))
+  h <- (t - s) / n
+  for (i in 1:n) {
+    s1 <- h * y0 %*% A(x0)
+    s2 <- h * (y0 + s1 / 2) %*% A(x0 + h / 2)
+    s3 <- h * (y0 + s2 / 2) %*% A(x0 + h / 2)
+    s4 <- h * (y0 + s3) %*% A(x0 + h)
+    y0 <- y0 + s1 / 6 + s2 / 3 + s3 / 3 + s4 / 6
+    x0 <- x0 + h
+  }
+  return(y0)
+}
+
+
+
+Lambda <- function(x) {
+
+  A <- matrix(0, 3, 3)
+  
+
+  A[1, 2] <- (0.0004 + 10^(4.54 + 0.06*(x+30)-10))*ifelse(x <= 35, 1, 0)
+  A[1,3]  <- mu02star(x)
+  A[2,1] <- 2.0058 * exp(-0.117*(x+30)) * ifelse(x <= 35,1,0)
+  A[2,3] <- A[1,3]*(1+ifelse(x <= 35,1,0))
+
+  row_sums <- rowSums(A)
+  diag(A) <- -row_sums
+  
+  return(A)
+}
+
+
+R <- function(x, mu) {
+  if (x <= 35) {
+    return(diag(c(-mu , 400000, 0)))
+  } else {
+    return(diag(c(400000, 400000,0)))
+  }
+}
+
+dR <- function(x, mu) {
+  if (x <= 35) {
+    return(diag(c(-1, 0,0)))
+  } else {
+    return(diag(c(0,0,0)))
+  }
+}
+
+reserve <- function(t, TT, Lambda, R, mu, rint, N) {
+  dim <- nrow(Lambda(t))
+  A11 <- function(x) {
+    return(Lambda(x) - rint * diag(1, nrow = dim))
+  }
+  RM <- function(x) {
+    cbind(rbind(A11(x), matrix(0, dim, dim)), rbind(R(x, mu), Lambda(x)))
+  }
+  PRM <- prodint(RM, t, TT, N)
+  RES <- PRM[1:dim, (dim + 1):(2 * dim)]
+  return((RES %*% rep(1, dim))[1])
+}
+
+
+equiv_premium <- function(t, TT, Lambda, R, dR, mu, rint, numsteps) {
+  b <- reserve(t, TT, Lambda, R, 0.0, rint, numsteps)
+  a <- reserve(t, TT, Lambda, dR, 0.0, rint, numsteps)
+  return(-b / a)
+}
+
+equiv_premium(0, 80, Lambda, R, dR, 0.0, 0.01, 5000)
+
+
+```
+
+
+
+# Opgave d)
+
+```{r}
+
+reserve <- function(t, TT, Lambda, R, mu, rint, N) {
+  dim <- nrow(Lambda(t))  
+  A11 <- function(x) {
+    return(Lambda(x) - rint * diag(1, nrow = dim))
+  }
+  RM <- function(x) {
+    cbind(rbind(A11(x), matrix(0, dim, dim)), rbind(R(x, mu), Lambda(x)))
+  }
+  PRM <- prodint(RM, t, TT, N) 
+  RES <- PRM[1:dim, (dim + 1):(2 * dim)]  
+  return(RES)  
+}
+
+
+
+V_20 <- reserve(20, 80, Lambda, R, 209640.5, 0.01, 1000)
+V_35 <- reserve(35, 80, Lambda, R, 209640.5, 0.01, 1000)
+
+V_20 %*% rep(1,3)
+
+V_35 %*% rep(1,3)
+
+
+```
+
+Vores resultater er i overenstemmelse med standard fortolkningen af prospektive reserver. 
+
+
+
+# opgave e)
+
+Vi benytter 
+$$
+\begin{align*}
+\frac{\partial}{\partial t} V^{th}(t)=(r(t)-\Lambda(t))V^{th}(t)-R^{\circ *}(t)e
+\end{align*}
+$$
+
+
+```{r}
+
+# Define parameters
+TT <- 80
+eq <- 209640.5
+rint <- 0.01
+N <- 1000
+
+# Generate a sequence of t values
+x_vals <- seq(0, TT, length.out = 100)  # 100 points from 0 to 80
+
+# Compute normal reserves at each t
+# Following the pattern used in diff_partial_thiele,
+# we combine the columns of the reserve matrix by multiplying by rep(1,3).
+y_vals <- sapply(x_vals, function(t) {
+  res_mat <- reserve(t, TT, Lambda, R, eq, rint, N)
+  # Combine columns by summing them up: reserve(...) %*% rep(1,3) gives a vector
+  v <- res_mat %*% rep(1, 3)
+  c(V_1 = v[1], V_2 = v[2])
+})
+
+# Transpose to get a nice format: now rows are states, columns are t-values
+y_vals <- t(y_vals)
+
+# Create a data frame for plotting
+results <- data.frame(x = x_vals, V_1 = y_vals[,1], V_2 = y_vals[,2])
+
+
+par(mfrow=c(2,2))
+plot(results$x, results$V_1, xlab = 't', ylab = 'Reserve', main = 'V_1 Reserve')
+
+plot(results$x, results$V_2, xlab = 't', ylab = 'Reserve', main = 'V_2 Reserve')
+
+
+
+```
+
+
+
+
+```{r}
+
+
+diff_partial_thiele <- function(t,TT=80, eq =209640.5, rint = 0.01, N=1000){
+  result <-(rint - Lambda(t))%*%( reserve(t, TT, Lambda, R, eq, rint, N)%*% rep(1,3)) - R(t,eq)%*% rep(1,3)
+  c(V_1 = result[1], V_2 =result[2])
+}
+
+# Generate x values
+x_vals <- seq(0, 80, length.out = 100)  # Generate 100 evenly spaced points between 0 and 80
+
+# Apply the function for each x_val and store results
+y_vals <- t(sapply(x_vals, diff_partial_thiele))  # Use transpose to align output
+
+# Convert to a dataframe for easier handling
+results <- data.frame(x = x_vals, V_1 = y_vals[, 1], V_2 = y_vals[, 2])
+
+# Plot V_1 and V_2
+plot(results$x, results$V_1, type = "l", col = "blue", lwd = 2,
+     xlab = "x (t values)", ylab = "Values", main = "V_1 and V_2 vs x")
+abline(a = 0, b = 0)
+lines(results$x, results$V_2, col = "red", lwd = 2)
+legend("topright", legend = c("Aktiv", "Invalid"), col = c("blue", "red"), lty = 1, lwd = 2)
+
+
+```
+# knyt en kommentar her
+
+
+
+# Opgave f)
+
+
+
+
+```{r}
+eq <- 209640.5
+
+R <- function(x, mu) {
+  if (x <= 35) {
+    return(diag(c(-mu , 400000, 0)))
+  } else {
+    return(diag(c(400000, 400000,0)))
+  }
+}
+
+
+
+Fu <- function(Lambda, R){
+  I <- base::diag(x=1, nrow = 3, ncol = 3)
+  k=2
+  r = 0.01
+  A <- matrix(0,9,9)
+  A[1:3, 1:3] <- Lambda- k*r*I 
+  A[4:6, 4:6] <- Lambda - (k-1)*r*I
+  A[7:9, 7:9] <- Lambda - (k-2)*r*I
+  
+  A[1:3, 4:6] <- R
+  A[4:6,7:9] <- R
+  
+  
+  return(A)
+}
+
+
+ABE <- function(u){
+  Fu(Lambda(u),R(u,eq))
+  
+}
+
+resultat <- prodint(ABE, 0, 80, 10000)
+
+sqrt((2*resultat[1:3,7:9]-resultat[4:6,7:9]^2) %*% rep(1,3))[1]
+ 
+ 
+
+```
+
+
+
+
+# Opgave g)
+
+
+
+
+
+```{r}
+
+m2 <- read.csv("ftmort.csv", sep = ";", dec = ",")
+m2fun <- approxfun(m2$Alder, m2$mu, rule = 2)
+mu202star <- function(t){ m2fun(t+30) }
+
+
+rente <- read.csv("rente.csv", sep = ";", dec = ",")
+rentefun <- approxfun(rente$t, rente$rt, rule = 2)
+rentefunk <- function(t){rentefun(t)}
+
+
+
+Lambda1 <- function(x) {
+  A <- matrix(0, 3, 3)
+  
+
+  A[1, 2] <- (10^(5.662015+0.033462*(x+30)-10))*ifelse(x <= 35, 1, 0)
+  A[1,3]  <- mu202star(x)
+  
+  A[2,1] <- 4.0116*exp(-0.117*(x+30))*ifelse(x<=35,1,0)
+  A[2,3] <- (0.010339+10^(5.070927+0.05049*(x+30)-10))*ifelse(x <= 35,1 ,0 )+ A[1,3]*ifelse(x>35,1,0)
+
+  
+    row_sums <- rowSums(A)
+  diag(A) <- -row_sums
+  
+  return(A)
+}
+Lambda1(30)
+
+```
+
+Vi regner nu risikosummerne, vi har stadig ikke nogle klumpbetalinger, så vi benytter 
+$$
+\begin{align*}
+RS_{ik}(t)=V_k^{th}(t)-V_i^{th}(t)
+\end{align*}
+$$
+
+```{r}
+
+TT <- 80
+eq <- 209640.5
+rint <- 0.01
+N <- 1000
+
+# Generate time points
+time_points <- seq(0, TT, length.out = 100)  # 100 time points from 0 to 80
+
+# Initialize a vector to store the differences
+differences <- numeric(length(time_points))
+
+# Calculate the difference at each time point
+for (i in seq_along(time_points)) {
+  t <- time_points[i]
+  fo_thiele <- reserve(t, TT, Lambda, R, eq, rint, N) %*% rep(1, 3)
+  differences[i] <- fo_thiele[1] - fo_thiele[2]
+}
+
+# Plot the differences
+plot(time_points, differences, type = "l", col = "blue", lwd = 2,
+     xlab = "Time (t)", ylab = "Difference (V1 - V2)",
+     main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
+abline(a = 0, b = 0)
+
+
+```
+
+Vi regner nu det samme for tredjeordensgrundlaget
+
+```{r}
+
+
+
+
+reserveR <- function(t, TT, Lambda, R, mu, r, N) {
+  dim <- nrow(Lambda(t))
+  A11 <- function(x) {
+    return(Lambda(x) - r(x) * diag(1, nrow = dim))
+  }
+  RM <- function(x) {
+    cbind(rbind(A11(x), matrix(0, dim, dim)), rbind(R(x, mu), Lambda(x)))
+  }
+  PRM <- prodint(RM, t, TT, N)
+  RES <- PRM[1:dim, (dim + 1):(2 * dim)]
+  return((RES %*% rep(1, dim)))
+}
+
+time_points_1 <- seq(0, 80, length.out = 100)  # 100 time points from 0 to 80
+
+# Initialize a vector to store the differences
+differences1 <- numeric(length(time_points))
+
+# Calculate the difference at each time point
+for (i in seq_along(time_points)) {
+  t <- time_points[i]
+  fo_thiele <- reserveR(t,80,Lambda1,R,eq,rentefunk,1000)
+  differences1[i] <- fo_thiele[1] - fo_thiele[2]
+}
+
+
+# Plot første dataserie
+plot(time_points_1, differences1, 
+     type = "l", 
+     col = "red", 
+     lwd = 2,
+     xlab = "Time (t)", 
+     ylab = "Difference (V1 - V2)", 
+     main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
+
+# Tilføj anden dataserie med lines()
+lines(time_points, differences, 
+      col = "blue", 
+      lwd = 2)
+
+
+```
+
+# Opgave h)
+
+
+
+
+```{r}
+
+# Define the time range
+start_time <- 0
+end_times <- 0:80  # End times from 0 to 80
+num_steps <- 1000  # Number of steps for the integrator
+
+# Pre-allocate matrices for storing probabilities
+P11 <- numeric(length(end_times))
+P12 <- numeric(length(end_times))
+P13 <- numeric(length(end_times))
+
+# Calculate the product integral for each end time and extract probabilities
+for (i in seq_along(end_times)) {
+  end_time <- end_times[i]
+  prod_matrix <- prodint(Lambda, start_time, end_time, num_steps)
+  
+  # Extract probabilities for transitions 1 -> 1, 1 -> 2, and 1 -> 3
+  P11[i] <- prod_matrix[1, 1]
+  P12[i] <- prod_matrix[1, 2]
+  P13[i] <- prod_matrix[1, 3]
+}
+
+# Plot P(1 -> 1) over time
+plot(end_times, P11, type = "l", col = "blue", lwd = 2,
+     xlab = "Time", ylab = "Transition Probability",
+     main = "Transition Probabilities Over Time")
+lines(end_times, P12, col = "red", lwd = 2)
+lines(end_times, P13, col = "green", lwd = 2)
+
+# Add a legend
+legend("bottomleft", legend = c("P(1 -> 1)", "P(1 -> 2)", "P(1 -> 3)"),
+       col = c("blue", "red", "green"), lty = 1, lwd = 2)
+
+
+```
+
+
+
+```{r}
+
+list(
+  data.frame(transition = "s = 25", p11 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][1], p12 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][2], p13 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][3]),
+  data.frame(transition = "s = 35", p11 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][1], p12 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][2], p13 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][3])
+)
+
+```
+
+
+
+
+# Opgave i)
+
+# måske er denne forkert
+
+
+
+```{r}
+
+
+
+eq    <- 209640.5
+start <- 0
+end_s <- 0:80         
+steps <- 1000         
+
+
+e_vec <- c(1, 1, 1)
+
+
+a0_0 <- numeric(length(end_s))  
+a0_1 <- numeric(length(end_s))  
+
+for (i in seq_along(end_s)) {
+  s         <- end_s[i]
+  
+  P_mat     <- prodint(Lambda1, start, s, steps)
+  
+  R_mat     <- R(s, eq)
+  
+  a_vec     <- P_mat %*% R_mat %*% e_vec
+  
+  a0_0[i]   <- a_vec[1]
+  a0_1[i]   <- a_vec[2]
+}
+
+
+
+plot(end_s, a0_0, type = "l", col = "blue", lwd = 2,
+     xlab = "Time s", ylab = "Expected cash flow")
+lines(end_s, a0_1, col = "red", lwd = 2)
+abline(0,0)
+
+
+
+sel_s <- c(20, 35)
+df_values <- data.frame(
+  s       = sel_s,
+  a0_0    = a0_0[end_s %in% sel_s],
+  a0_1    = a0_1[end_s %in% sel_s]
+)
+df_values
+
+
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+# Opgave j)
+Vi skal regne markedsværdien for kontrakten, hvilket er reserven udregnet på baggrund af markedsdata.
+$$
+\begin{align*}
+V_0^\circ(0)=\int_0^{80}e^{\int_t^u r(v)dv}a_0^\circ(t,u)du
+\end{align*}
+$$
+
+
+```{r}
+
+
+eq    <- 209640.5
+t <- 0
+
+reserveR(t,80, Lambda1, R, eq, rentefun, 1000)[1]
+
+
+
+```
+
+
+
+# opgave k)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
