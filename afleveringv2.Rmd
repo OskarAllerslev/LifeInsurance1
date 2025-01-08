@@ -23,6 +23,8 @@ mu02star <- function(t){ m1fun(t+30) }
 
 ```
 # Opgave a)
+I opgave a) og b) vil vi undertrykke notationen for reserverne og de tilhørende objekter. 
+
 Vi bemærker at der ikke er klumpbetalinger. Vi opskriver vores reward som $R(t)=\Lambda^1(t) * B(t)+ \Delta(b(t))$.
 
 $$
@@ -91,6 +93,8 @@ $$
 $$
 
 # Opgave c
+
+Vi benytter RK4 til at regne vores produktintegral. Vi benytter os af følgende algoritme. Koden er kopieret fra den kode vi har fået udleveret. 
 
 ```{r}
 prodint <- function(A, s, t, n) {
@@ -172,31 +176,16 @@ equiv_premium(0, 80, Lambda, R, dR, 0.0, 0.01, 5000)
 
 # Opgave d)
 
+
+
 ```{r}
 
-reserve <- function(t, TT, Lambda, R, mu, rint, N) {
-  dim <- nrow(Lambda(t))  
-  A11 <- function(x) {
-    return(Lambda(x) - rint * diag(1, nrow = dim))
-  }
-  RM <- function(x) {
-    cbind(rbind(A11(x), matrix(0, dim, dim)), rbind(R(x, mu), Lambda(x)))
-  }
-  PRM <- prodint(RM, t, TT, N) 
-  RES <- PRM[1:dim, (dim + 1):(2 * dim)]  
-  return(RES)  
-}
 
+V_20 <- reserve(20, 80, Lambda, R, 209640.5, 0.01, 1000) %*% rep(1,3)
+V_35 <- reserve(35, 80, Lambda, R, 209640.5, 0.01, 1000) %*% rep(1,3)
 
-
-V_20 <- reserve(20, 80, Lambda, R, 209640.5, 0.01, 1000)
-V_35 <- reserve(35, 80, Lambda, R, 209640.5, 0.01, 1000)
-
-V_20 %*% rep(1,3)
-
-V_35 %*% rep(1,3)
-
-
+print(dplyr::tibble(V_20))
+print(dplyr::tibble(V_35))
 ```
 
 Vores resultater er i overenstemmelse med standard fortolkningen af prospektive reserver. 
@@ -208,48 +197,40 @@ Vores resultater er i overenstemmelse med standard fortolkningen af prospektive 
 Vi benytter 
 $$
 \begin{align*}
-\frac{\partial}{\partial t} V^{th}(t)=(r(t)-\Lambda(t))V^{th}(t)-R^{\circ *}(t)e
+\frac{\partial}{\partial t} V_i^{\circ, *}(t)=(r^*(t)-\Lambda^*(t))V_i^{\circ, *}(t)-R^{\circ *}(t)e
 \end{align*}
 $$
 
 
 ```{r}
 
-# Define parameters
 TT <- 80
 eq <- 209640.5
 rint <- 0.01
 N <- 1000
 
-# Generate a sequence of t values
-x_vals <- seq(0, TT, length.out = 100)  # 100 points from 0 to 80
+x_vals <- seq(0, TT, length.out = 100) 
 
-# Compute normal reserves at each t
-# Following the pattern used in diff_partial_thiele,
-# we combine the columns of the reserve matrix by multiplying by rep(1,3).
 y_vals <- sapply(x_vals, function(t) {
   res_mat <- reserve(t, TT, Lambda, R, eq, rint, N)
-  # Combine columns by summing them up: reserve(...) %*% rep(1,3) gives a vector
   v <- res_mat %*% rep(1, 3)
   c(V_1 = v[1], V_2 = v[2])
 })
 
-# Transpose to get a nice format: now rows are states, columns are t-values
 y_vals <- t(y_vals)
 
-# Create a data frame for plotting
 results <- data.frame(x = x_vals, V_1 = y_vals[,1], V_2 = y_vals[,2])
 
 
-par(mfrow=c(2,2))
+par(mfrow = c(1, 2))
 plot(results$x, results$V_1, xlab = 't', ylab = 'Reserve', main = 'V_1 Reserve')
-
+abline(0,0)
 plot(results$x, results$V_2, xlab = 't', ylab = 'Reserve', main = 'V_2 Reserve')
-
+abline(0,0)
 
 
 ```
-
+Vi bemærker at reserverne for de to tilstande er som forventet og i overenstemmelse med standard fortolkningen af prospektive reserver for henholdsvis aktiv og invalid. 'Knækket' omkring $t=70$ kan skyldes at vi ikke skelner mellem intensiteter for mænd og kvinder, ellers kan det være en måde vi indkorporere halerisikoen for de ældre.
 
 
 
@@ -261,16 +242,12 @@ diff_partial_thiele <- function(t,TT=80, eq =209640.5, rint = 0.01, N=1000){
   c(V_1 = result[1], V_2 =result[2])
 }
 
-# Generate x values
-x_vals <- seq(0, 80, length.out = 100)  # Generate 100 evenly spaced points between 0 and 80
+x_vals <- seq(0, 80, length.out = 100)  
 
-# Apply the function for each x_val and store results
-y_vals <- t(sapply(x_vals, diff_partial_thiele))  # Use transpose to align output
+y_vals <- t(sapply(x_vals, diff_partial_thiele))  
 
-# Convert to a dataframe for easier handling
 results <- data.frame(x = x_vals, V_1 = y_vals[, 1], V_2 = y_vals[, 2])
 
-# Plot V_1 and V_2
 plot(results$x, results$V_1, type = "l", col = "blue", lwd = 2,
      xlab = "x (t values)", ylab = "Values", main = "V_1 and V_2 vs x")
 abline(a = 0, b = 0)
@@ -279,12 +256,17 @@ legend("topright", legend = c("Aktiv", "Invalid"), col = c("blue", "red"), lty =
 
 
 ```
-# knyt en kommentar her
-
+Man kan igen her se at differentialligningerne er som forventet og i overenstemmelse med de reserver vi plottede ovenfor denne. 
 
 
 # Opgave f)
 
+Vi finder her standardafvigelsen ved brug af $(2.29)$ til at finde $(2.30)$ hvilket konkret beregnes ved:
+$$
+\begin{align*}
+\prod_s^t (I+F^{(k)}(x)dx)=H^{(k)}(s,t)
+\end{align*}
+$$
 
 
 
@@ -338,7 +320,7 @@ sqrt((2*resultat[1:3,7:9]-resultat[4:6,7:9]^2) %*% rep(1,3))[1]
 
 
 
-
+Først definere vi vores nye rentefunktion ved interpolation som også gjort tidligere. Derudover laver vi også vores $\Lambda(t)$.
 
 ```{r}
 
@@ -369,14 +351,14 @@ Lambda1 <- function(x) {
   
   return(A)
 }
-Lambda1(30)
+
 
 ```
 
 Vi regner nu risikosummerne, vi har stadig ikke nogle klumpbetalinger, så vi benytter 
 $$
 \begin{align*}
-RS_{ik}(t)=V_k^{th}(t)-V_i^{th}(t)
+RS^{*, \circ}_{ik}(t)=V_k^{*, \circ}(t)-V_i^{*, \circ}(t)
 \end{align*}
 $$
 
@@ -387,20 +369,16 @@ eq <- 209640.5
 rint <- 0.01
 N <- 1000
 
-# Generate time points
-time_points <- seq(0, TT, length.out = 100)  # 100 time points from 0 to 80
+time_points <- seq(0, TT, length.out = 100) 
 
-# Initialize a vector to store the differences
 differences <- numeric(length(time_points))
 
-# Calculate the difference at each time point
 for (i in seq_along(time_points)) {
   t <- time_points[i]
   fo_thiele <- reserve(t, TT, Lambda, R, eq, rint, N) %*% rep(1, 3)
-  differences[i] <- fo_thiele[1] - fo_thiele[2]
+  differences[i] <- fo_thiele[2] - fo_thiele[1]
 }
 
-# Plot the differences
 plot(time_points, differences, type = "l", col = "blue", lwd = 2,
      xlab = "Time (t)", ylab = "Difference (V1 - V2)",
      main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
@@ -429,74 +407,63 @@ reserveR <- function(t, TT, Lambda, R, mu, r, N) {
   return((RES %*% rep(1, dim)))
 }
 
-time_points_1 <- seq(0, 80, length.out = 100)  # 100 time points from 0 to 80
+time_points_1 <- seq(0, 80, length.out = 100)  
 
-# Initialize a vector to store the differences
 differences1 <- numeric(length(time_points))
 
-# Calculate the difference at each time point
 for (i in seq_along(time_points)) {
   t <- time_points[i]
   fo_thiele <- reserveR(t,80,Lambda1,R,eq,rentefunk,1000)
-  differences1[i] <- fo_thiele[1] - fo_thiele[2]
+  differences1[i] <- fo_thiele[2] - fo_thiele[1]
 }
 
 
-# Plot første dataserie
-plot(time_points_1, differences1, 
-     type = "l", 
-     col = "red", 
-     lwd = 2,
-     xlab = "Time (t)", 
-     ylab = "Difference (V1 - V2)", 
+plot(time_points, differences, type = "l", col = "blue", lwd = 2,
+     xlab = "Time (t)", ylab = "Difference (V1 - V2)",
      main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
+lines(time_points_1, differences1, col = "red", lwd = 2)
 
-# Tilføj anden dataserie med lines()
-lines(time_points, differences, 
-      col = "blue", 
-      lwd = 2)
+
 
 
 ```
+Derfra har vi $RS_{1,2} \leq RS_{1,2}^{*,\circ}$. Vi har undladt de andre stadier da det virker lidt trivielt. 
 
 # Opgave h)
 
-
+Vi vil nu finde transitionssandsynlighederne for vores markovkæde. Vi benytter os af vores produktintegral til at finde disse. Vi benytter os af følgende algoritme. 
 
 
 ```{r}
 
-# Define the time range
 start_time <- 0
-end_times <- 0:80  # End times from 0 to 80
-num_steps <- 1000  # Number of steps for the integrator
+end_times <- 0:80  
+num_steps <- 1000 
 
-# Pre-allocate matrices for storing probabilities
 P11 <- numeric(length(end_times))
 P12 <- numeric(length(end_times))
 P13 <- numeric(length(end_times))
 
-# Calculate the product integral for each end time and extract probabilities
+
 for (i in seq_along(end_times)) {
-  end_time <- end_times[i]
+  end_time <- end_times[10]
   prod_matrix <- prodint(Lambda, start_time, end_time, num_steps)
   
-  # Extract probabilities for transitions 1 -> 1, 1 -> 2, and 1 -> 3
   P11[i] <- prod_matrix[1, 1]
   P12[i] <- prod_matrix[1, 2]
   P13[i] <- prod_matrix[1, 3]
 }
 
-# Plot P(1 -> 1) over time
 plot(end_times, P11, type = "l", col = "blue", lwd = 2,
      xlab = "Time", ylab = "Transition Probability",
      main = "Transition Probabilities Over Time")
 lines(end_times, P12, col = "red", lwd = 2)
 lines(end_times, P13, col = "green", lwd = 2)
 
-# Add a legend
 legend("bottomleft", legend = c("P(1 -> 1)", "P(1 -> 2)", "P(1 -> 3)"),
        col = c("blue", "red", "green"), lty = 1, lwd = 2)
+
+
 
 
 ```
@@ -506,19 +473,32 @@ legend("bottomleft", legend = c("P(1 -> 1)", "P(1 -> 2)", "P(1 -> 3)"),
 ```{r}
 
 list(
-  data.frame(transition = "s = 25", p11 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][1], p12 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][2], p13 = prodint(Lambda1, 0 ,25, 1000)[1:3, 1][3]),
-  data.frame(transition = "s = 35", p11 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][1], p12 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][2], p13 = prodint(Lambda1, 0 ,35, 1000)[1:3, 1][3])
+  data.frame(transition = "s = 25", 
+             p11 = prodint(Lambda1, 0 ,25, 1000)[1,1], 
+             p12 = prodint(Lambda1, 0 ,25, 1000)[1,2], 
+             p13 = prodint(Lambda1, 0 ,25, 1000)[1,3]),
+  data.frame(transition = "s = 35", 
+             p11 = prodint(Lambda1, 0 ,35, 1000)[1,1], 
+             p12 = prodint(Lambda1, 0 ,35, 1000)[1,2], 
+             p13 = prodint(Lambda1, 0 ,35, 1000)[1,3])
 )
 
 ```
-
+Det virker meget fornuftigt. 
 
 
 
 # Opgave i)
 
-# måske er denne forkert
 
+
+Vi regner det forventede tilstandsvise cash flow som givet af;
+$$
+\begin{align*}
+a(s,t)=P(s,t)R(t) e
+\end{align*}
+$$
+Hvilket giver en vektor, og vi kan da bare tage tilstand $i = 1,2,3$ som ønsket fra den vektor vi får ud.
 
 
 ```{r}
@@ -537,10 +517,13 @@ e_vec <- c(1, 1, 1)
 a0_0 <- numeric(length(end_s))  
 a0_1 <- numeric(length(end_s))  
 
+
+
 for (i in seq_along(end_s)) {
-  s         <- end_s[i]
+  s <- end_s[i]
+  P_mat <- prodint(Lambda, start, s, steps)
+
   
-  P_mat     <- prodint(Lambda1, start, s, steps)
   
   R_mat     <- R(s, eq)
   
@@ -583,7 +566,7 @@ df_values
 
 
 # Opgave j)
-Vi skal regne markedsværdien for kontrakten, hvilket er reserven udregnet på baggrund af markedsdata.
+Vi skal regne markedsværdien for kontrakten, hvilket er reserven udregnet på baggrund af markedsværdigrundlaget. 
 $$
 \begin{align*}
 V_0^\circ(0)=\int_0^{80}e^{\int_t^u r(v)dv}a_0^\circ(t,u)du
@@ -607,9 +590,9 @@ reserveR(t,80, Lambda1, R, eq, rentefun, 1000)[1]
 
 # opgave k)
 
+#dette er nok ikke helt korrekt? specielt det med renten, skal rettes lidt til efter bedste evne.
 
-
-
+Vi har givet at $\mu_{i,j}^\delta(t) = \alpha_{i,j}(t)\mu_{i,j}(t)$, men hvis vi skal vælge et $\alpha_{i,j}$ og $r^\delta(t)$ således vi sikre et overskud i en konvergens mæssig forstand, men mange forsikringstagere. Der er da klart at vi skal overestimere vores dødelighedsintensiteter og vælge diskonteringen således at $V^\delta(t)\geq V(t)$. Altså skal vi sikre at vi opskalere intensiteterne i de situationer hvor den givne kontrakt udbetaler til kunden. Vi skal da også sørge for at vælge diskonteringen således at $r^\delta(t) \leq r(t) \hspace{0.15cm} \forall t\in \mathbb{R}_+$
 
 
 
