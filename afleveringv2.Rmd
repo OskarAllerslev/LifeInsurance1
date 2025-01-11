@@ -1,31 +1,36 @@
 ---
 title: "Afleveringliv"
-author: "Oskar Allerslev"
+author: "Oskar Allerslev, Hugo Hendil, Emanuel Konrad"
 date: "2024-12-11"
 output:
+  pdf_document: default
   html_document:
     df_print: paged
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-```
+knitr::opts_chunk$set(warning = FALSE)
+library(tibble)
+library(tidyverse)
 
 
-# load data
+``` 
+
+
+# Indlæsning af data
 
 ```{r}
-
 m1 <- read.csv("mort1.csv", sep = ";", dec = ",")
 m1fun <- approxfun(m1$Alder, m1$mu, rule = 2)
 mu02star <- function(t){ m1fun(t+30) }
-
-
 ```
+
 # Opgave a)
+
 I opgave a) og b) vil vi undertrykke notationen for reserverne og de tilhørende objekter. 
 
-Vi bemærker at der ikke er klumpbetalinger. Vi opskriver vores reward som $R(t)=\Lambda^1(t) * B(t)+ \Delta(b(t))$.
+Vi bemærker at der ikke er klumpbetalinger. Vi opskriver vores *reward* som $R(t)=\Lambda^1(t) * B(t)+ \Delta(b(t))$.
 
 $$
 \begin{align*}
@@ -37,7 +42,7 @@ R^\circ(t)=\begin{bmatrix}
 \end{align*}
 $$
 
-Vi kan da skrive vores 
+Vi har dertil også:
 
 $$
 \begin{align*}
@@ -45,11 +50,11 @@ dB^\circ(t) &= \sum_{i \in E} \left( 1_{\{ X(t-)=i\}} b^\circ_i(t)dt\right)\\
 &=-\pi \cdot 1_{\{t\leq 35 \cap X(t-)=1 \}}dt+400K \cdot 1_{\{t> 35 \cap X(t-)=1 \}}dt+400K \cdot 1_{\{ X(t-)=2 \}}dt
 \end{align*}
 $$
-da vi ikke har klumpbetalinger. Den afhænger ikke af antagelserne fra førsteordensgrundlaget. 
+Det skyldes vi ikke har klumpbetalinger. Den afhænger ikke af antagelserne fra førsteordensgrundlaget. 
 
 # opgave b)
 
-En vigtig antagelse for at man kan regne ækvivalenspræmien er at $R(t)=R(t;\theta)$. Det er også gældende i vores tilfælde er $\theta$ bare præmieraten, så derfor kan vi klart benytte os af Newtons algorithme til at finde ækvivalenspræmien. Vi vælger at skrive det på vektor-form. Bemærk $t\in(0,80)$. Dertil er de prospektive reserver
+En vigtig antagelse for at man kan regne ækvivalenspræmien er at $R(t)=R(t;\theta)$. Det er også gældende i vores tilfælde, da $\theta$ bare er præmieraten, hvorfor vi kan benytte os af Newtons algoritme til at finde ækvivalenspræmien. Vi vælger at skrive vores udtryk på vektor-form. Bemærk $t\in(0,80)$. Dertil er de prospektive reserver givet:
 
 $$
 \begin{align*}
@@ -71,30 +76,31 @@ du
   \int_t^{80}e^{-\int_t^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du\\
   \int_t^{80}e^{-\int_t^u 0.01 dx}p_{21}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}+400K \cdot 1_{\{t > 35\}}\right)+p_{22}(0,u)(400K   )du\\
   0
-\end{bmatrix}
+\end{bmatrix}.
 \end{align*}
 $$
-
+Vi har også
 $$
 \begin{align*}
-V^{th}_1(0;0)=\int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du
+V^{th}_1(0;0)=\int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du,
 \end{align*}
 $$
+samt
 $$
 \begin{align*}
 \frac{\partial}{\partial \pi}V^{th}_1(0;\pi)=  \int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}\right)du
 \end{align*}
 $$
-da er ækvivalenspræmien givet ved
+Hertil er ækvivalenspræmien givet ved:
 $$
 \begin{align*}
 \mu = \frac{V^{th}_1(0;0)}{\frac{\partial}{\partial \pi}V^{th}_1(0;\pi)} = \frac{\int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(400K \cdot 1_{\{t > 35\}}\right)+p_{12}(0,u)(400K  )du }{ \int_0^{80}e^{-\int_0^u 0.01 dx}p_{11}(0,u)\left(-\pi \cdot 1_{\{t\leq 35 \}}\right)du}
 \end{align*}
 $$
 
-# Opgave c
+# Opgave c)
 
-Vi benytter RK4 til at regne vores produktintegral. Vi benytter os af følgende algoritme. Koden er kopieret fra den kode vi har fået udleveret. 
+Vi benytter *RK4* til at regne vores produktintegral. Nedenstående kode er (i stort omfang) kopieret fra den kode vi har fået udleveret. Den udgør vores beregning af produktintegralet.
 
 ```{r}
 prodint <- function(A, s, t, n) {
@@ -157,9 +163,8 @@ reserve <- function(t, TT, Lambda, R, mu, rint, N) {
   }
   PRM <- prodint(RM, t, TT, N)
   RES <- PRM[1:dim, (dim + 1):(2 * dim)]
-  return((RES %*% rep(1, dim))[1])
+  return((RES %*% rep(1, dim)))
 }
-
 
 equiv_premium <- function(t, TT, Lambda, R, dR, mu, rint, numsteps) {
   b <- reserve(t, TT, Lambda, R, 0.0, rint, numsteps)
@@ -167,43 +172,32 @@ equiv_premium <- function(t, TT, Lambda, R, dR, mu, rint, numsteps) {
   return(-b / a)
 }
 
-equiv_premium(0, 80, Lambda, R, dR, 0.0, 0.01, 5000)
-
-
+equiv_premium(0, 80, Lambda, R, dR, 0.0, 0.01, 5000)[1]
 ```
-
-
 
 # Opgave d)
 
-
-
 ```{r}
 
+V_20_ <- reserve(20, 80, Lambda, R, 209640.5, 0.01, 1000) 
+V_35_ <- reserve(35, 80, Lambda, R, 209640.5, 0.01, 1000) 
 
-V_20 <- reserve(20, 80, Lambda, R, 209640.5, 0.01, 1000) %*% rep(1,3)
-V_35 <- reserve(35, 80, Lambda, R, 209640.5, 0.01, 1000) %*% rep(1,3)
+data.frame( "V(20)" = V_20_, "V(35)" = V_35_)
 
-print(dplyr::tibble(V_20))
-print(dplyr::tibble(V_35))
 ```
 
-Vores resultater er i overenstemmelse med standard fortolkningen af prospektive reserver. 
-
-
+Vi observerer vores resultater er i overenstemmelse med den standard fortolkning af prospektive reserver. 
 
 # opgave e)
 
 Vi benytter 
 $$
 \begin{align*}
-\frac{\partial}{\partial t} V_i^{\circ, *}(t)=(r^*(t)-\Lambda^*(t))V_i^{\circ, *}(t)-R^{\circ *}(t)e
+\frac{\partial}{\partial t} V_i^{\circ, *}(t)=(r^*(t)-\Lambda^*(t))V_i^{\circ, *}(t)-R^{\circ *}(t)e.
 \end{align*}
 $$
 
-
 ```{r}
-
 TT <- 80
 eq <- 209640.5
 rint <- 0.01
@@ -213,7 +207,7 @@ x_vals <- seq(0, TT, length.out = 100)
 
 y_vals <- sapply(x_vals, function(t) {
   res_mat <- reserve(t, TT, Lambda, R, eq, rint, N)
-  v <- res_mat %*% rep(1, 3)
+  v <- res_mat 
   c(V_1 = v[1], V_2 = v[2])
 })
 
@@ -221,29 +215,23 @@ y_vals <- t(y_vals)
 
 results <- data.frame(x = x_vals, V_1 = y_vals[,1], V_2 = y_vals[,2])
 
-
 par(mfrow = c(1, 2))
 plot(results$x, results$V_1, xlab = 't', ylab = 'Reserve', main = 'V_1 Reserve')
 abline(0,0)
 plot(results$x, results$V_2, xlab = 't', ylab = 'Reserve', main = 'V_2 Reserve')
 abline(0,0)
-
-
 ```
-Vi bemærker at reserverne for de to tilstande er som forventet og i overenstemmelse med standard fortolkningen af prospektive reserver for henholdsvis aktiv og invalid. 'Knækket' omkring $t=70$ kan skyldes at vi ikke skelner mellem intensiteter for mænd og kvinder, ellers kan det være en måde vi indkorporere halerisikoen for de ældre.
 
-
+Vi bemærker at reserverne for de to tilstande er som forventet. De er i overenstemmelse med den standard fortolkning af prospektive reserver for henholdsvis aktiv og invalid. 'Knækket' omkring $t=70$ kan skyldes, vi ikke skelner mellem intensiteter for mænd og kvinder. Det kan også tænkes at være en måde vi inkorporere halerisikoen for de ældre.
 
 ```{r}
 
-
-diff_partial_thiele <- function(t,TT=80, eq =209640.5, rint = 0.01, N=1000){
-  result <-(rint - Lambda(t))%*%( reserve(t, TT, Lambda, R, eq, rint, N)%*% rep(1,3)) - R(t,eq)%*% rep(1,3)
+diff_partial_thiele <- function(t,TT=80, eq =209640.5 , rint = 0.01, N=1000){
+  result <- (rint - Lambda(t)) %*% reserve(t, TT, Lambda, R, eq, rint, N)  - R(t,eq) %*% rep(1,3)
   c(V_1 = result[1], V_2 =result[2])
 }
 
 x_vals <- seq(0, 80, length.out = 100)  
-
 y_vals <- t(sapply(x_vals, diff_partial_thiele))  
 
 results <- data.frame(x = x_vals, V_1 = y_vals[, 1], V_2 = y_vals[, 2])
@@ -254,21 +242,17 @@ abline(a = 0, b = 0)
 lines(results$x, results$V_2, col = "red", lwd = 2)
 legend("topright", legend = c("Aktiv", "Invalid"), col = c("blue", "red"), lty = 1, lwd = 2)
 
-
 ```
 Man kan igen her se at differentialligningerne er som forventet og i overenstemmelse med de reserver vi plottede ovenfor denne. 
 
-
 # Opgave f)
 
-Vi finder her standardafvigelsen ved brug af $(2.29)$ til at finde $(2.30)$ hvilket konkret beregnes ved:
+Vi finder her standardafvigelsen ved brug af $(2.29)$ (udtrykket i forelæsningsnoterne) til at finde $(2.30)$ (udtrykket i forlæsningsnoterne) hvilket konkret beregnes ved:
 $$
 \begin{align*}
-\prod_s^t (I+F^{(k)}(x)dx)=H^{(k)}(s,t)
+\prod_s^t (I+F^{(k)}(x)dx)=H^{(k)}(s,t).
 \end{align*}
 $$
-
-
 
 ```{r}
 eq <- 209640.5
@@ -281,8 +265,6 @@ R <- function(x, mu) {
   }
 }
 
-
-
 Fu <- function(Lambda, R){
   I <- base::diag(x=1, nrow = 3, ncol = 3)
   k=2
@@ -291,14 +273,10 @@ Fu <- function(Lambda, R){
   A[1:3, 1:3] <- Lambda- k*r*I 
   A[4:6, 4:6] <- Lambda - (k-1)*r*I
   A[7:9, 7:9] <- Lambda - (k-2)*r*I
-  
   A[1:3, 4:6] <- R
   A[4:6,7:9] <- R
-  
-  
   return(A)
 }
-
 
 ABE <- function(u){
   Fu(Lambda(u),R(u,eq))
@@ -308,62 +286,41 @@ ABE <- function(u){
 resultat <- prodint(ABE, 0, 80, 10000)
 
 sqrt((2*resultat[1:3,7:9]-resultat[4:6,7:9]^2) %*% rep(1,3))[1]
- 
- 
-
 ```
-
-
-
 
 # Opgave g)
 
-
-
-Først definere vi vores nye rentefunktion ved interpolation som også gjort tidligere. Derudover laver vi også vores $\Lambda(t)$.
+Først definerer vi vores nye rentefunktion vha. interpolation (som også gjort tidligere). Derudover konstruerer vi også vores $\Lambda(t)$.
 
 ```{r}
-
 m2 <- read.csv("ftmort.csv", sep = ";", dec = ",")
 m2fun <- approxfun(m2$Alder, m2$mu, rule = 2)
 mu202star <- function(t){ m2fun(t+30) }
-
 
 rente <- read.csv("rente.csv", sep = ";", dec = ",")
 rentefun <- approxfun(rente$t, rente$rt, rule = 2)
 rentefunk <- function(t){rentefun(t)}
 
-
-
 Lambda1 <- function(x) {
   A <- matrix(0, 3, 3)
-  
-
   A[1, 2] <- (10^(5.662015+0.033462*(x+30)-10))*ifelse(x <= 35, 1, 0)
   A[1,3]  <- mu202star(x)
-  
   A[2,1] <- 4.0116*exp(-0.117*(x+30))*ifelse(x<=35,1,0)
   A[2,3] <- (0.010339+10^(5.070927+0.05049*(x+30)-10))*ifelse(x <= 35,1 ,0 )+ A[1,3]*ifelse(x>35,1,0)
-
-  
     row_sums <- rowSums(A)
   diag(A) <- -row_sums
-  
   return(A)
 }
-
-
 ```
 
-Vi regner nu risikosummerne, vi har stadig ikke nogle klumpbetalinger, så vi benytter 
+Vi regner nu risikosummerne. Jf. vi stadig ikke har nogle klumpbetalinger benyttes: 
 $$
 \begin{align*}
-RS^{*, \circ}_{ik}(t)=V_k^{*, \circ}(t)-V_i^{*, \circ}(t)
+RS^{*, \circ}_{ik}(t)=V_k^{*, \circ}(t)-V_i^{*, \circ}(t).
 \end{align*}
 $$
 
 ```{r}
-
 TT <- 80
 eq <- 209640.5
 rint <- 0.01
@@ -383,17 +340,11 @@ plot(time_points, differences, type = "l", col = "blue", lwd = 2,
      xlab = "Time (t)", ylab = "Difference (V1 - V2)",
      main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
 abline(a = 0, b = 0)
-
-
 ```
 
-Vi regner nu det samme for tredjeordensgrundlaget
+Vi regner nu det samme for tredjeordensgrundlaget:
 
 ```{r}
-
-
-
-
 reserveR <- function(t, TT, Lambda, R, mu, r, N) {
   dim <- nrow(Lambda(t))
   A11 <- function(x) {
@@ -417,38 +368,31 @@ for (i in seq_along(time_points)) {
   differences1[i] <- fo_thiele[2] - fo_thiele[1]
 }
 
-
 plot(time_points, differences, type = "l", col = "blue", lwd = 2,
      xlab = "Time (t)", ylab = "Difference (V1 - V2)",
      main = "Difference between fo_thiele[1] and fo_thiele[2] over Time")
 lines(time_points_1, differences1, col = "red", lwd = 2)
-
-
-
-
 ```
-Derfra har vi $RS_{1,2} \leq RS_{1,2}^{*,\circ}$. Vi har undladt de andre stadier da det virker lidt trivielt. 
+Derfra har vi $RS_{1,2} \leq RS_{1,2}^{*,\circ}$. De resterende tilfælde tolker vi som unødige at regne. 
 
 # Opgave h)
 
 Vi vil nu finde transitionssandsynlighederne for vores markovkæde. Vi benytter os af vores produktintegral til at finde disse. Vi benytter os af følgende algoritme. 
 
-
 ```{r}
-
 start_time <- 0
 end_times <- 0:80  
 num_steps <- 1000 
+devtools::install_github("OskarAllerslev/lifepack")
+library(lifepack)
 
 P11 <- numeric(length(end_times))
 P12 <- numeric(length(end_times))
 P13 <- numeric(length(end_times))
 
-
 for (i in seq_along(end_times)) {
-  end_time <- end_times[10]
-  prod_matrix <- prodint(Lambda, start_time, end_time, num_steps)
-  
+  end_time <- end_times[i]
+  prod_matrix <- lifepack::prodint(Lambda, start_time, end_time, num_steps)
   P11[i] <- prod_matrix[1, 1]
   P12[i] <- prod_matrix[1, 2]
   P13[i] <- prod_matrix[1, 3]
@@ -462,16 +406,9 @@ lines(end_times, P13, col = "green", lwd = 2)
 
 legend("bottomleft", legend = c("P(1 -> 1)", "P(1 -> 2)", "P(1 -> 3)"),
        col = c("blue", "red", "green"), lty = 1, lwd = 2)
-
-
-
-
 ```
 
-
-
 ```{r}
-
 list(
   data.frame(transition = "s = 25", 
              p11 = prodint(Lambda1, 0 ,25, 1000)[1,1], 
@@ -482,65 +419,44 @@ list(
              p12 = prodint(Lambda1, 0 ,35, 1000)[1,2], 
              p13 = prodint(Lambda1, 0 ,35, 1000)[1,3])
 )
-
 ```
-Det virker meget fornuftigt. 
-
-
+Vores resultater virker fornuftige. 
 
 # Opgave i)
 
-
-
-Vi regner det forventede tilstandsvise cash flow som givet af;
+Vi regner det forventede tilstandsvise cash flow som givet ift.:
 $$
 \begin{align*}
-a(s,t)=P(s,t)R(t) e
+a(s,t)=P(s,t)R(t) e.
 \end{align*}
 $$
-Hvilket giver en vektor, og vi kan da bare tage tilstand $i = 1,2,3$ som ønsket fra den vektor vi får ud.
 
+Dette giver en vektor, hvoraf vi kan hive resultatet for tilstand $i = 1,2,3$ ud.
 
 ```{r}
-
-
-
 eq    <- 209640.5
 start <- 0
 end_s <- 0:80         
 steps <- 1000         
 
-
 e_vec <- c(1, 1, 1)
-
 
 a0_0 <- numeric(length(end_s))  
 a0_1 <- numeric(length(end_s))  
 
-
-
 for (i in seq_along(end_s)) {
   s <- end_s[i]
   P_mat <- prodint(Lambda, start, s, steps)
-
-  
-  
   R_mat     <- R(s, eq)
-  
   a_vec     <- P_mat %*% R_mat %*% e_vec
-  
   a0_0[i]   <- a_vec[1]
   a0_1[i]   <- a_vec[2]
 }
-
-
 
 plot(end_s, a0_0, type = "l", col = "blue", lwd = 2,
      xlab = "Time s", ylab = "Expected cash flow")
 lines(end_s, a0_1, col = "red", lwd = 2)
 abline(0,0)
-
-
 
 sel_s <- c(20, 35)
 df_values <- data.frame(
@@ -549,55 +465,69 @@ df_values <- data.frame(
   a0_1    = a0_1[end_s %in% sel_s]
 )
 df_values
-
-
-
-
-
-
 ```
 
-
-
-
-
-
-
-
-
 # Opgave j)
+
 Vi skal regne markedsværdien for kontrakten, hvilket er reserven udregnet på baggrund af markedsværdigrundlaget. 
 $$
 \begin{align*}
-V_0^\circ(0)=\int_0^{80}e^{\int_t^u r(v)dv}a_0^\circ(t,u)du
+V_0^\circ(0)=\int_0^{80}e^{\int_t^u r(v)dv}a_0^\circ(t,u)du.
 \end{align*}
 $$
-
-
 ```{r}
-
-
 eq    <- 209640.5
 t <- 0
 
 reserveR(t,80, Lambda1, R, eq, rentefun, 1000)[1]
-
-
-
 ```
-
-
 
 # opgave k)
 
-#dette er nok ikke helt korrekt? specielt det med renten, skal rettes lidt til efter bedste evne.
 
-Vi har givet at $\mu_{i,j}^\delta(t) = \alpha_{i,j}(t)\mu_{i,j}(t)$, men hvis vi skal vælge et $\alpha_{i,j}$ og $r^\delta(t)$ således vi sikre et overskud i en konvergens mæssig forstand, men mange forsikringstagere. Der er da klart at vi skal overestimere vores dødelighedsintensiteter og vælge diskonteringen således at $V^\delta(t)\geq V(t)$. Altså skal vi sikre at vi opskalere intensiteterne i de situationer hvor den givne kontrakt udbetaler til kunden. Vi skal da også sørge for at vælge diskonteringen således at $r^\delta(t) \leq r(t) \hspace{0.15cm} \forall t\in \mathbb{R}_+$
+$\textbf{Antag}$: $c(t) - \delta(t) > 0 \hspace{0.5cm} \forall t \in \mathbb{R}_+$. 
 
+Vi ved at $V^*(t) \geq 0 \hspace{0.5cm} \forall t \in \mathbb{R}_+$, da vi benytter ækvivalenspræmien regnet ud fra førsteordensgrundlaget.
+Fra tidligere inspektion af Risikosummerne har vi at
 
+$$
+\begin{align*}
+RS_{01}(t) \geq & 0\\
+RS_{02}(t) \leq & 0\\
+RS_{10}(t) \leq & 0 \\
+RS_{12} \leq & 0\\
+\end{align*}
+$$
+Dertil kan vi ved benyttelse af theorem 6.5 skrive:
+$$
+\begin{align*}
+c(t) = (r(t)-r^\delta(t))V^*(t) + \sum_{j \in E \land j \neq X(t, \omega)} (\mu_{X(t,\omega),j}(t)- \mu_{X(t,\omega),j}(t))RS^*_{X(t,\omega),j} > \delta(t)
+\end{align*}
+$$
+Hvorved vi benytter vores antagelse om at $c(t) - \delta(t) > 0$ og derved udleder de nødvendige krav for $r^\delta(t)$ og $\alpha_{i,j}$. For at ovenstående skal gælde har vi 
 
+$$
+\begin{align*}
+r(t) & \geq r^\delta(t)\\
+\mu_{01}^\delta(t) & \geq \mu_{01}(t)\\
+\mu_{02}^\delta(t) & \leq \mu_{02}(t)\\
+\mu_{10}^\delta(t) & \leq \mu_{10}(t)\\
+\mu_{12}^\delta(t) & \leq \mu_{12}(t)
+\end{align*}
+$$
 
+Vi kan nu benytte os af vores $\mu_{01}^\delta(t)$ og $\mu_{02}^\delta(t)$ til at finde vores $\alpha_{i,j}$.
 
+$$
+\begin{align*}
+\alpha_{01} = \frac{\mu_{01}^\delta(t)}{\mu_{01}(t)} \geq 1\\
+\alpha_{02} = \frac{\mu_{02}^\delta(t)}{\mu_{02}(t)} \leq 1\\
+\alpha_{10} = \frac{\mu_{10}^\delta(t)}{\mu_{10}(t)} \leq 1\\
+\alpha_{12} = \frac{\mu_{12}^\delta(t)}{\mu_{12}(t)} \leq 1
+\end{align*}
+$$
+
+hvorved vi har fundet de nødvendige krav. 
 
 
 
